@@ -1,0 +1,121 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <fstream>
+using namespace std;
+
+struct Point {
+    double x;
+    double y;
+};
+
+double distance(Point p1, Point p2) {
+    double dx = p1.x - p2.x;
+    double dy = p1.y - p2.y;
+    return sqrt(dx * dx + dy * dy);
+}
+
+pair<Point, Point> closestPairRecursive(
+    vector<Point>& pointsByX,
+    vector<Point>& pointsByY,
+    size_t left,
+    size_t right,
+    double epsilon
+) {
+
+    if (right - left <= 2) {
+        double minDist = numeric_limits<double>::max();
+        pair<Point, Point> closest;
+
+        for (size_t i = left; i <= right; ++i) {
+            for (size_t j = i + 1; j <= right; ++j) {
+                double dist = distance(pointsByX[i], pointsByX[j]);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = { pointsByX[i], pointsByX[j] };
+                }
+            }
+        }
+
+        return closest;
+    }
+
+    size_t mid = (left + right) / 2;
+    double mid_x = pointsByX[mid].x;
+
+    auto leftPair = closestPairRecursive(pointsByX, pointsByY, left, mid, epsilon);
+    auto rightPair = closestPairRecursive(pointsByX, pointsByY, mid + 1, right, epsilon);
+
+    double minDist = min(
+        distance(leftPair.first, leftPair.second),
+        distance(rightPair.first, rightPair.second)
+    );
+
+    vector<Point> middleSection;
+    for (size_t i = left; i <= right; ++i) {
+        if (abs(pointsByY[i].x - mid_x) <= epsilon) { 
+            middleSection.push_back(pointsByY[i]);
+        }
+    }
+
+    for (size_t i = 0; i < middleSection.size(); ++i) {
+        for (size_t j = i + 1; j < middleSection.size() && (middleSection[j].y - middleSection[i].y) < minDist; ++j) {
+            double dist = distance(middleSection[i], middleSection[j]);
+            if (dist < minDist) {
+                minDist = dist;
+                leftPair = { middleSection[i], middleSection[j] };
+            }
+        }
+    }
+
+    return (distance(leftPair.first, leftPair.second) < distance(rightPair.first, rightPair.second))
+        ? leftPair : rightPair;
+}
+
+pair<Point, Point> closestPair(vector<Point>& points, double epsilon) {
+    vector<Point> pointsByX = points;
+    vector<Point> pointsByY = points;
+    sort(pointsByX.begin(), pointsByX.end(), [](const Point& a, const Point& b) {
+        return a.x < b.x;
+        });
+    sort(pointsByY.begin(), pointsByY.end(), [](const Point& a, const Point& b) {
+        return a.y < b.y;
+        });
+
+    return closestPairRecursive(pointsByX, pointsByY, 0, points.size() - 1, epsilon);
+}
+
+int main() {
+    vector<Point> points;
+    ifstream file("points.txt");
+    if (!file)
+    {
+        cerr << "Unable to open file points.txt";
+        exit(1);
+    }
+
+    double x, y;
+    while (file >> x >> y)
+    {
+        Point pt;
+        pt.x = x;
+        pt.y = y;
+        points.push_back(pt);
+    }
+
+    if (points.size() < 2) {
+        cerr << "At least two points are required." << endl;
+        return 1;
+    }
+
+    double epsilon = 0.0001; // defining a small value for handling duplicate x-coordinates
+    auto closest = closestPair(points, epsilon);
+    cout << "Closest pair of points:" << endl;
+    cout << "Point 1: (" << closest.first.x << ", " << closest.first.y << ")" << endl;
+    cout << "Point 2: (" << closest.second.x << ", " << closest.second.y << ")" << endl;
+    cout << "Distance: " << distance(closest.first, closest.second) << endl;
+
+    return 0;
+}
